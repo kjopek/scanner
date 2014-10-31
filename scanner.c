@@ -109,6 +109,7 @@ void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_has
 
     if (tail > 0) {
         io_desc.piod_offs += tail;
+        io_desc.piod_len = tail;
         ptrace(PT_IO, pid, (caddr_t) &io_desc, 0);
         scanner_hash_update(hash, io_desc.piod_addr, tail);
     }
