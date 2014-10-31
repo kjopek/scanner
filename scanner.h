@@ -30,6 +30,10 @@ void scanner_hash_update(scanner_hash *hash, const void *data, size_t len);
 void scanner_hash_final(scanner_hash *hash);
 void scanner_hash_free(scanner_hash *hash);
 
+void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_hash_func hash_func);
+void scanner_proc_info(struct procstat *procstat_handler, struct kinfo_proc *kproc);
+
+
 typedef struct {
     char              initial[64];
     scanner_hash_func func;

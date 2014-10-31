@@ -81,15 +81,18 @@ void scanner_hash_free(scanner_hash *hash)
 void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_hash_func hash_func)
 {
     int pagesize = sysconf(_SC_PAGESIZE);
-    struct ptrace_io_desc io_desc;
-    void *mem = malloc(pagesize);
+    uint64_t tail;
+    void *mem;
     scanner_hash *hash;
+    struct ptrace_io_desc io_desc;
 
-    scanner_hash_init(&hash, hash_func);
+    mem = malloc(pagesize);
 
     if (mem == NULL) {
         return ;
     }
+
+    scanner_hash_init(&hash, hash_func);
 
     io_desc.piod_len = pagesize;
     io_desc.piod_offs = (void*) vmentry->kve_start;
@@ -102,7 +105,7 @@ void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_has
         io_desc.piod_offs += pagesize;
     } while ((uint64_t) io_desc.piod_offs < vmentry->kve_end);
 
-    uint64_t tail = (vmentry->kve_end - vmentry->kve_start) % pagesize;
+    tail = (vmentry->kve_end - vmentry->kve_start) % pagesize;
 
     if (tail > 0) {
         io_desc.piod_offs += tail;
@@ -112,8 +115,7 @@ void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_has
 
     scanner_hash_final(hash);
 
-    free(mem);
-    printf("%-16lx %-16lx [%lu]\t",
+    printf("%-16lx\t%-16lx\t[%8lu]\t",
            vmentry->kve_start,
            vmentry->kve_end,
            vmentry->kve_end - vmentry->kve_start);
@@ -124,6 +126,7 @@ void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_has
     printf("\n");
 
     scanner_hash_free(hash);
+    free(mem);
 }
 
 void scanner_proc_info(struct procstat *procstat_handler, struct kinfo_proc *kproc)
@@ -135,16 +138,18 @@ void scanner_proc_info(struct procstat *procstat_handler, struct kinfo_proc *kpr
 
     if (vmentry == NULL) {
         perror("procstat_getvmmap");
+        procstat_freevmmap(procstat_handler, vmentry);
         return ;
     }
 
-    printf("Pid: %u", kproc->ki_pid);
-    printf(" vm_size: %lu | rss_size: %lu", kproc->ki_size, kproc->ki_rssize);
-    printf(" command: %s\n", kproc->ki_comm);
+    printf("Pid: %u | vm_size: %lu | rss_size: %lu | command: %s\n", kproc->ki_pid,
+           kproc->ki_size, kproc->ki_rssize*sysconf(_SC_PAGESIZE), kproc->ki_tdname);
+
+    int check_mask = KVME_PROT_READ | KVME_PROT_WRITE | KVME_PROT_EXEC;
+    int result_mask = KVME_PROT_READ | KVME_PROT_EXEC;
 
     for (unsigned int j = 0; j<vmentry_count; ++j) {
-        if ((vmentry[j].kve_protection & (KVME_PROT_READ | KVME_PROT_WRITE | KVME_PROT_EXEC))
-                == (KVME_PROT_READ | KVME_PROT_EXEC))
+        if ((vmentry[j].kve_protection & check_mask) == result_mask)
             scanner_vmregion_hash(kproc->ki_pid, &vmentry[j], SCANNER_HASH_SHA256);
     }
     procstat_freevmmap(procstat_handler, vmentry);
