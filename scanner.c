@@ -14,6 +14,70 @@
 #include <kvm.h>
 #include "scanner.h"
 
+int scanner_hash_init(scanner_hash ** hash, scanner_hash_func func)
+{
+    *hash = (scanner_hash*) malloc(sizeof(scanner_hash));
+
+    if (*hash == NULL) {
+        return -1;
+    }
+
+    switch (func) {
+    case SCANNER_HASH_MD5:
+        MD5Init(&((*hash)->scanner_hash_context.md5_ctx));
+        (*hash)->digest_size = MD5_DIGEST_LENGTH;
+        break;
+    case SCANNER_HASH_SHA256:
+        SHA256_Init(&((*hash)->scanner_hash_context.sha256_ctx));
+        (*hash)->digest_size = 256/8;
+        break;
+    case SCANNER_HASH_SHA512:
+        SHA512_Init(&((*hash)->scanner_hash_context.sha512_ctx));
+        (*hash)->digest_size = 512/8;
+        break;
+    }
+
+    (*hash)->hash_func = func;
+    return 0;
+}
+
+void scanner_hash_update(scanner_hash *hash, const char *data, size_t len)
+{
+    switch (hash->hash_func) {
+    case SCANNER_HASH_MD5:
+        MD5Update(&hash->scanner_hash_context.md5_ctx, (const void*) data, len);
+        break;
+    case SCANNER_HASH_SHA256:
+        SHA256_Update(&hash->scanner_hash_context.sha256_ctx, (const void*) data, len);
+        break;
+    case SCANNER_HASH_SHA512:
+        SHA512_Update(&hash->scanner_hash_context.sha512_ctx, (const void*) data, len);
+        break;
+    }
+}
+
+void scanner_hash_final(scanner_hash *hash)
+{
+    hash->hash = (unsigned char*) malloc(hash->digest_size);
+    switch (hash->hash_func) {
+    case SCANNER_HASH_MD5:
+        MD5Final(hash->hash, &hash->scanner_hash_context.md5_ctx);
+        break;
+    case SCANNER_HASH_SHA256:
+        SHA256_Final(hash->hash, &hash->scanner_hash_context.sha256_ctx);
+        break;
+    case SCANNER_HASH_SHA512:
+        SHA512_Final(hash->hash, &hash->scanner_hash_context.sha512_ctx);
+        break;
+    }
+}
+
+void scanner_hash_free(scanner_hash *hash)
+{
+    free(hash->hash);
+    free(hash);
+}
+
 void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry)
 {
     int data = 0;
@@ -31,7 +95,10 @@ void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry)
     }
 
     SHA256_Final(digest, &context);
-    printf("  0x%016lx - 0x%016lx: ", vmentry->kve_start, vmentry->kve_end);
+    printf("%-16lx %-16lx [%-20lu]: ",
+           vmentry->kve_start,
+           vmentry->kve_end,
+           vmentry->kve_end - vmentry->kve_start);
 
     for (int i=0; i<sizeof(digest); ++i) {
         printf("%02x", digest[i]);
@@ -56,9 +123,8 @@ void scanner_proc_info(struct procstat *procstat_handler, struct kinfo_proc *kpr
     printf(" command: %s\n", kproc->ki_comm);
 
     for (unsigned int j = 0; j<vmentry_count; ++j) {
-        if ((vmentry[j].kve_protection & KVME_PROT_WRITE) == 0 &&
-             (vmentry[j].kve_type == KVME_TYPE_DEFAULT ||
-              vmentry[j].kve_type == KVME_TYPE_PHYS))
+        if ((vmentry[j].kve_protection & (KVME_PROT_READ | KVME_PROT_WRITE | KVME_PROT_EXEC))
+                == (KVME_PROT_READ | KVME_PROT_EXEC))
             scanner_vmregion_hash(kproc->ki_pid, &vmentry[j]);
     }
     procstat_freevmmap(procstat_handler, vmentry);

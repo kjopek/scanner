@@ -9,42 +9,30 @@
 #include <sha512.h>
 
 typedef enum {
-    MD5,
-    SHA256,
-    SHA512
-} scanner_hashing_algos;
+    SCANNER_HASH_MD5,
+    SCANNER_HASH_SHA256,
+    SCANNER_HASH_SHA512
+} scanner_hash_func;
 
 typedef struct {
-    void (*Init)(void *context);
-    void (*Update)(void *context, const unsigned char *data, size_t len);
-    void (*Finish)(unsigned char *digest, void *context);
+    union {
+        MD5_CTX md5_ctx;
+        SHA256_CTX sha256_ctx;
+        SHA512_CTX sha512_ctx;
+    } scanner_hash_context;
     int digest_size;
-} scanner_hashing_algo;
+    unsigned char *hash;
+    scanner_hash_func hash_func;
+} scanner_hash;
+
+int scanner_hash_init(scanner_hash ** hash, scanner_hash_func func);
+void scanner_hash_update(scanner_hash *hash, const char *data, size_t len);
+void scanner_hash_final(scanner_hash *hash);
+void scanner_hash_free(scanner_hash *hash);
 
 typedef struct {
     char initial[64];
-
+    scanner_hash_func func;
 } scanner_properties;
-
-scanner_hashing_algo scanner_hashing_algorithms[] = {
-    {
-        .Init = MD5Init,
-        .Update = MD5Update,
-        .Finish = MD5Final,
-        .digest_size = MD5_DIGEST_LENGTH
-    },
-    {
-        .Init = SHA256_Init,
-        .Update = SHA256_Update,
-        .Finish = SHA256_Final,
-        .digest_size = 256/8
-    },
-    {
-        .Init = SHA512_Init,
-        .Update = SHA512_Update,
-        .Finish = SHA512_Final,
-        .digest_size = 512/8
-    }
-};
 
 #endif /* SCANNER_H */
