@@ -12,7 +12,7 @@
 #include <fcntl.h>
 #include <libprocstat.h>
 #include <kvm.h>
-#include <sha256.h>
+#include "scanner.h"
 
 void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry)
 {
