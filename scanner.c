@@ -41,17 +41,17 @@ int scanner_hash_init(scanner_hash ** hash, scanner_hash_func func)
     return 0;
 }
 
-void scanner_hash_update(scanner_hash *hash, const char *data, size_t len)
+void scanner_hash_update(scanner_hash *hash, const void *data, size_t len)
 {
     switch (hash->hash_func) {
     case SCANNER_HASH_MD5:
-        MD5Update(&hash->scanner_hash_context.md5_ctx, (const void*) data, len);
+        MD5Update(&hash->scanner_hash_context.md5_ctx, data, len);
         break;
     case SCANNER_HASH_SHA256:
-        SHA256_Update(&hash->scanner_hash_context.sha256_ctx, (const void*) data, len);
+        SHA256_Update(&hash->scanner_hash_context.sha256_ctx, data, len);
         break;
     case SCANNER_HASH_SHA512:
-        SHA512_Update(&hash->scanner_hash_context.sha512_ctx, (const void*) data, len);
+        SHA512_Update(&hash->scanner_hash_context.sha512_ctx, data, len);
         break;
     }
 }
@@ -78,32 +78,52 @@ void scanner_hash_free(scanner_hash *hash)
     free(hash);
 }
 
-void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry)
+void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_hash_func hash_func)
 {
-    int data = 0;
-    unsigned char digest[32];
-    SHA256_CTX context;
+    int pagesize = sysconf(_SC_PAGESIZE);
+    struct ptrace_io_desc io_desc;
+    void *mem = malloc(pagesize);
+    scanner_hash *hash;
 
-    uint64_t ptr = vmentry->kve_start;
+    scanner_hash_init(&hash, hash_func);
 
-    SHA256_Init(&context);
-
-    while (ptr < vmentry->kve_end) {
-        data = ptrace(PT_READ_D, pid, (caddr_t) ptr, 0);
-        SHA256_Update(&context, (unsigned char*) &data, sizeof(data));
-        ptr += sizeof (data);
+    if (mem == NULL) {
+        return ;
     }
 
-    SHA256_Final(digest, &context);
-    printf("%-16lx %-16lx [%-20lu]: ",
+    io_desc.piod_len = pagesize;
+    io_desc.piod_offs = (void*) vmentry->kve_start;
+    io_desc.piod_addr = mem;
+    io_desc.piod_op = PT_READ_I;
+
+    do {
+        ptrace(PT_IO, pid, (caddr_t) &io_desc, 0);
+        scanner_hash_update(hash, io_desc.piod_addr, pagesize);
+        io_desc.piod_offs += pagesize;
+    } while ((uint64_t) io_desc.piod_offs < vmentry->kve_end);
+
+    uint64_t tail = (vmentry->kve_end - vmentry->kve_start) % pagesize;
+
+    if (tail > 0) {
+        io_desc.piod_offs += tail;
+        ptrace(PT_IO, pid, (caddr_t) &io_desc, 0);
+        scanner_hash_update(hash, io_desc.piod_addr, tail);
+    }
+
+    scanner_hash_final(hash);
+
+    free(mem);
+    printf("%-16lx %-16lx [%lu]\t",
            vmentry->kve_start,
            vmentry->kve_end,
            vmentry->kve_end - vmentry->kve_start);
 
-    for (int i=0; i<sizeof(digest); ++i) {
-        printf("%02x", digest[i]);
+    for (int i=0; i<hash->digest_size; ++i) {
+        printf("%02x", hash->hash[i]);
     }
     printf("\n");
+
+    scanner_hash_free(hash);
 }
 
 void scanner_proc_info(struct procstat *procstat_handler, struct kinfo_proc *kproc)
@@ -125,12 +145,12 @@ void scanner_proc_info(struct procstat *procstat_handler, struct kinfo_proc *kpr
     for (unsigned int j = 0; j<vmentry_count; ++j) {
         if ((vmentry[j].kve_protection & (KVME_PROT_READ | KVME_PROT_WRITE | KVME_PROT_EXEC))
                 == (KVME_PROT_READ | KVME_PROT_EXEC))
-            scanner_vmregion_hash(kproc->ki_pid, &vmentry[j]);
+            scanner_vmregion_hash(kproc->ki_pid, &vmentry[j], SCANNER_HASH_SHA256);
     }
     procstat_freevmmap(procstat_handler, vmentry);
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
     pid_t pid = 0;
     struct procstat *procstat_handler = NULL;
