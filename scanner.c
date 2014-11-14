@@ -37,6 +37,12 @@ int scanner_hash_init(scanner_hash ** hash, scanner_hash_func func)
         break;
     }
 
+    hash->hash = (unsigned char*) malloc(hash->digest_size);
+    if (hash->hash == NULL) {
+        free(*hash);
+        return -1;
+    }
+
     (*hash)->hash_func = func;
     return 0;
 }
@@ -58,7 +64,6 @@ void scanner_hash_update(scanner_hash *hash, const void *data, size_t len)
 
 void scanner_hash_final(scanner_hash *hash)
 {
-    hash->hash = (unsigned char*) malloc(hash->digest_size);
     switch (hash->hash_func) {
     case SCANNER_HASH_MD5:
         MD5Final(hash->hash, &hash->scanner_hash_context.md5_ctx);
@@ -124,7 +129,12 @@ void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_has
     for (int i=0; i<hash->digest_size; ++i) {
         printf("%02x", hash->hash[i]);
     }
-    printf("\n");
+
+    if (vmentry->kve_path) {
+        printf(" %s\n", vmentry->kve_path);
+    }
+    else
+        printf("\n");
 
     scanner_hash_free(hash);
     free(mem);
