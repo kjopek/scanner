@@ -28,6 +28,7 @@ typedef struct {
     int               digest_size;
     unsigned char *   hash;
     scanner_hash_func hash_func;
+    char *pass;
 } scanner_hash;
 
 int scanner_hash_init(scanner_hash ** hash, scanner_hash_func func);
