@@ -27,16 +27,17 @@ static struct option opts[] = {
 void
 scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_hash_func hash_func)
 {
-    int pagesize = sysconf(_SC_PAGESIZE);
+    int pagesize;
     uint64_t tail;
     void *mem;
     scanner_hash *hash;
     struct ptrace_io_desc io_desc;
 
+    pagesize = sysconf(_SC_PAGESIZE);
     mem = malloc(pagesize);
 
     if (mem == NULL) {
-        return ;
+        return;
     }
 
     scanner_hash_init(&hash, hash_func);
@@ -68,13 +69,11 @@ scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_hash_fun
            vmentry->kve_end,
            vmentry->kve_end - vmentry->kve_start);
 
-    for (int i=0; i<hash->digest_size; ++i) {
+    for (int i=0; i<hash->digest_size; ++i)
         printf("%02x", hash->hash[i]);
-    }
 
-    if (vmentry->kve_path) {
+    if (vmentry->kve_path)
         printf(" %s\n", vmentry->kve_path);
-    }
     else
         printf("\n");
 
@@ -93,7 +92,7 @@ scanner_proc_info(struct procstat *procstat_handler, struct kinfo_proc *kproc, s
     if (vmentry == NULL) {
         perror("procstat_getvmmap");
         procstat_freevmmap(procstat_handler, vmentry);
-        return ;
+        return;
     }
 
     printf("Pid: %u | vm_size: %lu | rss_size: %lu | command: %s\n",
@@ -144,6 +143,7 @@ main(int argc, char **argv)
 
     if ((procstat_handler = procstat_open_sysctl()) == NULL) {
         perror("pstat");
+        return (1);
     }
     
     if (pid == 0)
@@ -151,12 +151,11 @@ main(int argc, char **argv)
     else
         kinfo_proc_handler = procstat_getprocs(procstat_handler, KERN_PROC_PID, pid, &nprocs);
 
-    for (unsigned int i = 0; i<nprocs; ++i) {
+    for (unsigned int i = 0; i<nprocs; ++i)
         scanner_proc_info (procstat_handler, &kinfo_proc_handler[i], hash_func);
-    }
 
     procstat_freeprocs(procstat_handler, kinfo_proc_handler);
     procstat_close(procstat_handler);
     
-    return 0;
+    return (0);
 }

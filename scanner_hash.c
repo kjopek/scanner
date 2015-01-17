@@ -6,7 +6,7 @@ scanner_hash_init(scanner_hash ** hash, scanner_hash_func func)
     *hash = (scanner_hash*) malloc(sizeof(scanner_hash));
 
     if (*hash == NULL) {
-        return -1;
+        return (-1);
     }
 
     switch (func) {
@@ -27,11 +27,11 @@ scanner_hash_init(scanner_hash ** hash, scanner_hash_func func)
     (*hash)->hash = (unsigned char*) malloc((*hash)->digest_size);
     if ((*hash)->hash == NULL) {
         free(*hash);
-        return -1;
+        return (-1);
     }
 
     (*hash)->hash_func = func;
-    return 0;
+    return (0);
 }
 
 void
