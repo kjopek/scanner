@@ -115,13 +115,16 @@ int
 main(int argc, char **argv)
 {
     pid_t pid = 0;
-    scanner_hash_func hash_func = SCANNER_HASH_MD5;
+    scanner_hash_func hash_func;
     int ch;
 
-    struct procstat *procstat_handler = NULL;
-    struct kinfo_proc *kinfo_proc_handler = NULL;
-    unsigned int nprocs = 0;
-    
+    struct procstat *procstat_handler;
+    struct kinfo_proc *kinfo_proc_handler;
+    unsigned int nprocs ;
+
+    procstat_handler = NULL;
+    kinfo_proc_handler = NULL;
+    nprocs = 0;
 
     while ((ch = getopt_long(argc, argv, "bf:", opts, NULL)) != -1) {
         switch(ch) {
@@ -134,7 +137,7 @@ main(int argc, char **argv)
                 hash_func = SCANNER_HASH_SHA512;
             } else {
                 fprintf(stderr, "Unknown hash function: %s.\n", optarg);
-                return 1;
+                return (1);
             }
         case 'p':
             pid = atoi(optarg);
