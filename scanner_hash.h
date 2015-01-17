@@ -31,7 +31,7 @@ typedef struct {
     char *pass;
 } scanner_hash;
 
-int scanner_hash_init(scanner_hash ** hash, scanner_hash_func func);
+int  scanner_hash_init(scanner_hash ** hash, scanner_hash_func func);
 void scanner_hash_update(scanner_hash *hash, const void *data, size_t len);
 void scanner_hash_final(scanner_hash *hash);
 void scanner_hash_free(scanner_hash *hash);
