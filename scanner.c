@@ -12,10 +12,20 @@
 #include <fcntl.h>
 #include <libprocstat.h>
 #include <kvm.h>
+
+#include <getopt.h>
+
 #include "scanner.h"
 #include "scanner_hash.h"
 
-void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_hash_func hash_func)
+static struct option opts[] = {
+    {"hash", required_argument, NULL, 'h'},
+    {"pid", required_argument, NULL, 'p'},
+    {NULL, 0, NULL, 0}
+};
+
+void
+scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_hash_func hash_func)
 {
     int pagesize = sysconf(_SC_PAGESIZE);
     uint64_t tail;
@@ -72,7 +82,8 @@ void scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry, scanner_has
     free(mem);
 }
 
-void scanner_proc_info(struct procstat *procstat_handler, struct kinfo_proc *kproc)
+void
+scanner_proc_info(struct procstat *procstat_handler, struct kinfo_proc *kproc, scanner_hash_func hash_func)
 {
     struct kinfo_vmentry *vmentry;
     unsigned int vmentry_count;
@@ -85,28 +96,50 @@ void scanner_proc_info(struct procstat *procstat_handler, struct kinfo_proc *kpr
         return ;
     }
 
-    printf("Pid: %u | vm_size: %lu | rss_size: %lu | command: %s\n", kproc->ki_pid,
-           kproc->ki_size, kproc->ki_rssize*sysconf(_SC_PAGESIZE), kproc->ki_tdname);
+    printf("Pid: %u | vm_size: %lu | rss_size: %lu | command: %s\n",
+           kproc->ki_pid,
+           kproc->ki_size,
+           kproc->ki_rssize*sysconf(_SC_PAGESIZE),
+           kproc->ki_tdname);
 
     int check_mask = KVME_PROT_READ | KVME_PROT_WRITE | KVME_PROT_EXEC;
     int result_mask = KVME_PROT_READ | KVME_PROT_EXEC;
 
     for (unsigned int j = 0; j<vmentry_count; ++j) {
         if ((vmentry[j].kve_protection & check_mask) == result_mask)
-            scanner_vmregion_hash(kproc->ki_pid, &vmentry[j], SCANNER_HASH_SHA256);
+            scanner_vmregion_hash(kproc->ki_pid, &vmentry[j], hash_func);
     }
     procstat_freevmmap(procstat_handler, vmentry);
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     pid_t pid = 0;
+    scanner_hash_func hash_func = SCANNER_HASH_MD5;
+    int ch;
+
     struct procstat *procstat_handler = NULL;
     struct kinfo_proc *kinfo_proc_handler = NULL;
     unsigned int nprocs = 0;
     
-    if (argc == 2) {
-        pid = atol(argv[1]);
+
+    while ((ch = getopt_long(argc, argv, "bf:", opts, NULL)) != -1) {
+        switch(ch) {
+        case 'h':
+            if (strcmp("MD5", optarg) == 0) {
+                hash_func = SCANNER_HASH_MD5;
+            } else if (strcmp("SHA256", optarg) == 0) {
+                hash_func = SCANNER_HASH_SHA256;
+            } else if (strcmp("SHA512", optarg) == 0) {
+                hash_func = SCANNER_HASH_SHA512;
+            } else {
+                fprintf(stderr, "Unknown hash function: %s.\n", optarg);
+                return 1;
+            }
+        case 'p':
+            pid = atoi(optarg);
+        }
     }
 
     if ((procstat_handler = procstat_open_sysctl()) == NULL) {
@@ -119,7 +152,7 @@ int main(int argc, char **argv)
         kinfo_proc_handler = procstat_getprocs(procstat_handler, KERN_PROC_PID, pid, &nprocs);
 
     for (unsigned int i = 0; i<nprocs; ++i) {
-        scanner_proc_info (procstat_handler, &kinfo_proc_handler[i]);
+        scanner_proc_info (procstat_handler, &kinfo_proc_handler[i], hash_func);
     }
 
     procstat_freeprocs(procstat_handler, kinfo_proc_handler);

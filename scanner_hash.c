@@ -1,6 +1,7 @@
 #include "scanner_hash.h"
 
-int scanner_hash_init(scanner_hash ** hash, scanner_hash_func func)
+int
+scanner_hash_init(scanner_hash ** hash, scanner_hash_func func)
 {
     *hash = (scanner_hash*) malloc(sizeof(scanner_hash));
 
@@ -33,7 +34,8 @@ int scanner_hash_init(scanner_hash ** hash, scanner_hash_func func)
     return 0;
 }
 
-void scanner_hash_update(scanner_hash *hash, const void *data, size_t len)
+void
+scanner_hash_update(scanner_hash *hash, const void *data, size_t len)
 {
     switch (hash->hash_func) {
     case SCANNER_HASH_MD5:
@@ -48,7 +50,8 @@ void scanner_hash_update(scanner_hash *hash, const void *data, size_t len)
     }
 }
 
-void scanner_hash_final(scanner_hash *hash)
+void
+scanner_hash_final(scanner_hash *hash)
 {
     switch (hash->hash_func) {
     case SCANNER_HASH_MD5:
@@ -63,7 +66,8 @@ void scanner_hash_final(scanner_hash *hash)
     }
 }
 
-void scanner_hash_free(scanner_hash *hash)
+void
+scanner_hash_free(scanner_hash *hash)
 {
     free(hash->hash);
     free(hash);
