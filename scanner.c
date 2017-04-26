@@ -21,12 +21,12 @@
 #include "scanner_dump.h"
 
 static struct option opts[] = {
-	{"hash", required_argument, NULL, 'h'},
-	{"help", no_argument, NULL, 'Z'},
-	{"init", required_argument, NULL, 'i'},
-	{"output", required_argument, NULL, 'o'},
-	{"pid", required_argument, NULL, 'p'},
-	{NULL, 0, NULL, 0}
+	{"hash", 	required_argument,	NULL,	'h'},
+	{"help", 	no_argument,		NULL,	'Z'},
+	{"init", 	required_argument,	NULL,	'i'},
+	{"output", 	required_argument,	NULL,	'o'},
+	{"pid", 	required_argument,	NULL,	'p'},
+	{NULL, 		0,			NULL,	0}
 };
 
 void
@@ -64,7 +64,6 @@ scanner_vmregion_hash(pid_t pid, struct kinfo_vmentry *vmentry,
 	scanner_hash_init(&hash, hash_func);
 
 	error = ptrace(PT_ATTACH, pid, NULL, 0);
-	//wait(&status);
 	wait4(pid, &status, WSTOPPED | WTRAPPED, NULL);
 	ptrace_err(error);
 
