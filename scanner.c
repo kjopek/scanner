@@ -168,9 +168,9 @@ main(int argc, char **argv)
         perror("pstat");
         return (1);
     }
-    
+
     if (pid == 0)
-        kinfo_proc_handler = procstat_getprocs(procstat_handler, KERN_PROC_PROC, 0, &nprocs);
+        kinfo_proc_handler = procstat_getprocs(procstat_handler, KERN_PROC_PROC, pid, &nprocs);
     else
         kinfo_proc_handler = procstat_getprocs(procstat_handler, KERN_PROC_PID, pid, &nprocs);
 
@@ -179,6 +179,6 @@ main(int argc, char **argv)
 
     procstat_freeprocs(procstat_handler, kinfo_proc_handler);
     procstat_close(procstat_handler);
-    
+
     return (0);
 }
