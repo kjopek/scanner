@@ -10,20 +10,20 @@ scanner_hash_init(scanner_hash ** hash, scanner_hash_func func)
 
 	switch (func) {
 	case SCANNER_HASH_MD5:
-		MD5Init(&((*hash)->scanner_hash_context.md5_ctx));
-		(*hash)->digest_size = MD5_DIGEST_LENGTH;
+		MD5Init(&((* hash)->scanner_hash_context.md5_ctx));
+		(* hash)->digest_size = MD5_DIGEST_LENGTH;
 		break;
 	case SCANNER_HASH_SHA256:
 		SHA256_Init(&((*hash)->scanner_hash_context.sha256_ctx));
-		(*hash)->digest_size = 256/8;
+		(* hash)->digest_size = 256 / 8;
 		break;
 	case SCANNER_HASH_SHA512:
-		SHA512_Init(&((*hash)->scanner_hash_context.sha512_ctx));
-		(*hash)->digest_size = 512/8;
+		SHA512_Init(&((* hash)->scanner_hash_context.sha512_ctx));
+		(* hash)->digest_size = 512 / 8;
 		break;
 	}
 
-	(*hash)->hash = (unsigned char*) malloc((*hash)->digest_size);
+	(* hash)->hash = (unsigned char *)malloc((*hash)->digest_size);
 	if ((*hash)->hash == NULL) {
 		free(*hash);
 		return (-1);
